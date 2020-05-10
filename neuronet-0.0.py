@@ -9,20 +9,20 @@ class neuronet():
         self.size   = len(L)
         self.l_rate = l_rate
         
-        self.W = [np.random.rand(self.L[i+1], self.L[i]) for i in range(self.size-1)]   # W - an array of matrixes with weights
-        self.B = [np.random.rand(self.L[i+1]) for i in range(self.size-1)]              # B - an array of vectors with bias weights
+        self.W = [(np.random.rand(self.L[i+1], self.L[i]) - 0.5) for i in range(self.size-1)]       # W - an array of matrixes with weights
+        self.B = [(np.random.rand(self.L[i+1]) - 0.5) for i in range(self.size-1)]                  # B - an array of vectors with bias weights
 
-        self.I = [None for i in range(self.size)]                                       # I - an array of vectors with inputs of the activation functions
-        self.O = [None for i in range(self.size)]                                       # O - an array of vectors with outputs of the activation functions
+        self.I = [None for i in range(self.size)]                                                   # I - an array of vectors with inputs of the activation functions
+        self.O = [None for i in range(self.size)]                                                   # O - an array of vectors with outputs of the activation functions
 
-        self.dW = [np.zeros((self.L[i+1], self.L[i])) for i in range(self.size-1)]
-        self.dB = [np.zeros((self.L[i+1],))  for i in range(self.size-1)]
+        self.dW = None
+        self.dB = None
 
     def feed_forward(self, inp):        # TODO: add comments
+        self.O[0] = inp
+        self.I[1] = self.W[0].dot(inp) + self.B[0]
 
-        self.I[0] = inp
-
-        for i in range(self.size-1):
+        for i in range(1, self.size-1):
             self.O[i]   = self.f(self.I[i])
             self.I[i+1] = self.W[i].dot(self.O[i]) + self.B[i]
 
@@ -33,7 +33,7 @@ class neuronet():
         self.feed_forward(inp)
         dLdI = self.gLoss_der(self.O[self.size-1], target)                                      # dLdI - a vector of partial derivatives d/dI (Loss)
 
-        for i in range(self.size-2, -1, -1):
+        for i in range(self.size-2, 0, -1):
 
             temp = dLdI.reshape(self.L[i+1], 1) @ self.O[i].reshape(1, self.L[i])
             self.dW[i] = temp * self.l_rate                                                     # TODO: add support for batch training
@@ -41,20 +41,43 @@ class neuronet():
 
             dLdI = self.f_der(self.I[i]) * (dLdI.dot(self.W[i]))
 
-    def train(self, inps, targets, l_rate=-1, batch_size=1):
+        temp = dLdI.reshape(self.L[1], 1) @ self.O[0].reshape(1, self.L[0])
+        self.dW[0] = temp * self.l_rate
+        self.dB[0] = dLdI * self.l_rate
+
+    def train_step(self, inp, target, l_rate=-1):
         if l_rate == -1:
             l_rate = self.l_rate
 
-        for i in range(len(inps)):
-            self.back_propagation(inps[i], targets[i])
+        self.dW = [np.zeros((self.L[i+1], self.L[i])) for i in range(self.size-1)]
+        self.dB = [np.zeros((self.L[i+1],))  for i in range(self.size-1)]
+    
+        self.back_propagation(inp, target)
 
-            for i in range(self.size-1):
-                self.W[i] -= self.dW[i]
-                self.B[i] -= self.dB[i]
+        for i in range(self.size-1):
+            self.W[i] -= self.dW[i]
+            self.B[i] -= self.dB[i]
 
-        return #self.Loss(self.O[-1], targets[-1])
+        return self.Loss(self.O[-1], targets[-1])
+
+#    def train(self, inps, targets, l_rate=-1, batch_size=1):
+#        if l_rate == -1:
+#            l_rate = self.l_rate
+#
+#        self.dW = [np.zeros((self.L[i+1], self.L[i])) for i in range(self.size-1)]
+#        self.dB = [np.zeros((self.L[i+1],))  for i in range(self.size-1)]
+#
+#        for i in range(len(inps)):
+#            self.back_propagation(inps[i], targets[i])
+#
+#            for i in range(self.size-1):
+#                self.W[i] -= self.dW[i]
+#                self.B[i] -= self.dB[i]
+#
+#        return #self.Loss(self.O[-1], targets[-1])
 
     def predict(self, inp):
+
         self.feed_forward(inp)
         return self.O[self.size-1]
 
@@ -74,39 +97,45 @@ def scale_input(inp):
     s = np.sum(inp)
     return inp/s
 
-if __name__ == '__main__':
 
-    train_input = []
-    train_target = []
-    test_input = []
-    test_target = []
 
-    data_file = open("/home/mrrobot/AI/MNIST/mnist/mnist_train_100.csv")
-    train_data = np.asfarray([line.split(",") for line in data_file.readlines()])
-    data_file.close()
-    for i in range(len(train_data)):
 
-        train_input.append(scale_input(train_data[i%3][1:]))
+
+data_file = open("/home/mrrobot/AI/mnist/mnist_train_100.csv")
+train_data = np.asfarray([line.split(",") for line in data_file.readlines()])
+data_file.close()
+for i in range(len(train_data)):
+    train_data[i][1:] = scale_input(train_data[i][1:])
+
+data_file = open("/home/mrrobot/AI/mnist/mnist_test_10.csv")
+test_data = np.asfarray([line.split(",") for line in data_file.readlines()])
+data_file.close()
+for i in range(len(test_data)):
+    test_data[i][1:] = scale_input(test_data[i][1:])
+
+input_nodes = 784
+hidden_nodes = 200
+output_nodes = 10
+learning_rate = 0.1
+epochs = 300
+net = neuronet([input_nodes, hidden_nodes, output_nodes], learning_rate)
+
+for epoch in range(epochs):
+    np.random.shuffle(train_data)
+    for record in train_data:
+        inputs = record[1:]
+        targets = [0] * output_nodes
+        targets[int(record[0])] = 1
+        net.train_step(inputs, targets)
         
-        x = [0 for j in range(10)]
-        x[int(train_data[i%3][0])] = 1
-        train_target.append(np.array(x))
-
-    input_nodes = 784
-    hidden_nodes = 150
-    output_nodes = 10
-    learning_rate = 0.00005
-    epochs = 100
-    net = neuronet([input_nodes, hidden_nodes,  output_nodes], learning_rate)
-
-    for epoch in range(epochs):
-        net.train(train_input, train_target)
-
-    hits = 0
-    for i in range(len(train_input)):
-        prediction = net.predict(train_input[i])
-        prediction = np.argmax(prediction)
-        print(prediction)
-        if train_target[i][prediction] == 1:
-            hits += 1
-    print('%d%%' % ((100*hits/len(train_input))))
+    log_train = []
+    log_test = []
+    for record in train_data:
+        inputs = record[1:]
+        answer = np.argmax(net.predict(inputs))
+        log_train.append(int(record[0]) == answer)
+    for record in test_data:
+        inputs = record[1:]
+        answer = np.argmax(net.predict(inputs))
+        log_test.append(int(record[0]) == answer)
+    print(sum(log_train) / len(log_train), sum(log_test) / len(log_test))
