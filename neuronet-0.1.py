@@ -86,7 +86,7 @@ class neuronet():
         temp = np.exp(x)
         return temp/np.sum(temp)
     def Loss(self, y, target):
-        return -np.sum(y*np.log(target))
+        return -np.sum(target*np.log(y))
     def gLoss_der(self, y, target):
         return y-target
     def f_der(self, x):
@@ -94,22 +94,17 @@ class neuronet():
 
 def scale_input(inp):
     s = np.max(inp)
-    for i in range (len(inp)):
-        if inp[i] == 0:
-            inp[i] == 0.001
-    return inp/s
+    return (inp+1)/s
 
 
 
-
-
-data_file = open("/home/mrrobot/AI/mnist/mnist_train_100.csv")
+data_file = open("/home/mrrobot/AI/mnist/mnist_train.csv")
 train_data = np.asfarray([line.split(",") for line in data_file.readlines()])
 data_file.close()
 for i in range(len(train_data)):
     train_data[i][1:] = scale_input(train_data[i][1:])
 
-data_file = open("/home/mrrobot/AI/mnist/mnist_test_10.csv")
+data_file = open("/home/mrrobot/AI/mnist/mnist_test.csv")
 test_data = np.asfarray([line.split(",") for line in data_file.readlines()])
 data_file.close()
 for i in range(len(test_data)):
@@ -118,7 +113,7 @@ for i in range(len(test_data)):
 input_nodes = 784
 hidden_nodes = 300
 output_nodes = 10
-learning_rate = 0.3
+learning_rate = 0.2
 epochs = 500
 net = neuronet([input_nodes, hidden_nodes, output_nodes], learning_rate)
 
